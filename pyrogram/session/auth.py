@@ -56,13 +56,16 @@ class Auth:
 
     @staticmethod
     def unpack(b: BytesIO):
-        b.seek(20)  # Skip auth_key_id (8), message_id (8) and message_length (4)
+        assert b.read(8) == b"\x00" * 8, "Invalid magic number"
+        b.seek(12)  # Skip message_id (8) and message_length (4)
         return TLObject.read(b)
 
     async def invoke(self, data: TLObject):
         data = self.pack(data)
         await self.connection.send(data)
         response = BytesIO(await self.connection.recv())
+        if len(response.getvalue()) == 4:
+            raise RuntimeError(f"Error code received: {int.from_bytes(response.getvalue(), 'little', signed=True)}")
 
         return self.unpack(response)
 
@@ -128,7 +131,6 @@ class Auth:
 
                 log.debug("Done encrypt data with RSA")
 
-                # Step 5. TODO: Handle "server_DH_params_fail". Code assumes response is ok
                 log.debug("Send req_DH_params")
                 server_dh_params = await self.invoke(
                     raw.functions.ReqDHParams(
@@ -198,7 +200,8 @@ class Auth:
                     )
                 )
 
-                # TODO: Handle "auth_key_aux_hash" if the previous step fails
+                if isinstance(set_client_dh_params_answer, (raw.types.DhGenRetry, raw.types.DhGenFail)):
+                    raise RuntimeError("Received DH params retry / failed")
 
                 # Step 7; Step 8
                 g_a = int.from_bytes(server_dh_inner_data.g_a, "big")
