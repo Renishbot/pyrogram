@@ -1,0 +1,12 @@
+class {name}(TLObject):  # type: ignore
+    """{docstring}
+    """
+
+    QUALNAME = "pyrogram.raw.base.{qualname}"
+
+    def __init__(self):
+        raise TypeError("\nBase types can only be used for type checking purposes:\n"
+                        "You tried to use a base type instance as argument,\n"
+                        "but you need to instantiate one of its constructors instead.\n"
+                        "More info: https://docs.pyrogram.org/telegram/base/{doc_name}")
+
