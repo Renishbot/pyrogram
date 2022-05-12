@@ -48,7 +48,7 @@ class Connection:
         self.address = DataCenter(dc_id, test_mode, ipv6, media)
         self.mode = self.MODES.get(mode, TCPAbridged)
 
-        self.protocol = None  # type: TCP
+        self.protocol = None  # type: Optional[TCP]
 
     async def connect(self):
         for i in range(Connection.MAX_RETRIES):
