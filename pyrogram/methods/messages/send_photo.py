@@ -53,6 +53,8 @@ class SendPhoto:
     ) -> Optional["types.Message"]:
         """Send photos.
 
+        .. include:: /_includes/usable-by/users-bots.rst
+
         Parameters:
             chat_id (``int`` | ``str``):
                 Unique identifier (int) or username (str) of the target chat.
@@ -131,7 +133,7 @@ class SendPhoto:
                 await app.send_photo("me", "photo.jpg")
 
                 # Send photo by uploading from URL
-                await app.send_photo("me", "https://example.com/example.jpg)
+                await app.send_photo("me", "https://example.com/example.jpg")
 
                 # Add caption to a photo
                 await app.send_photo("me", "photo.jpg", caption="Caption")

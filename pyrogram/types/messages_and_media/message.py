@@ -133,7 +133,7 @@ class Message(Object, Update):
             Signature of the post author for messages in channels, or the custom title of an anonymous group
             administrator.
 
-        has_protected_content (``str``, *optional*):
+        has_protected_content (``bool``, *optional*):
             True, if the message can't be forwarded.
 
         text (``str``, *optional*):
@@ -254,6 +254,9 @@ class Message(Object, Update):
 
         views (``int``, *optional*):
             Channel post views.
+	    
+	forwards (``int``, *optional*):
+            Channel post forwards.
 
         via_bot (:obj:`~pyrogram.types.User`):
             The information of the bot that generated the message from an inline query of a user.
@@ -361,6 +364,7 @@ class Message(Object, Update):
         pinned_message: "Message" = None,
         game_high_score: int = None,
         views: int = None,
+	forwards: int = None,
         via_bot: "types.User" = None,
         outgoing: bool = None,
         matches: List[Match] = None,
@@ -436,6 +440,7 @@ class Message(Object, Update):
         self.pinned_message = pinned_message
         self.game_high_score = game_high_score
         self.views = views
+        self.forwards = forwards
         self.via_bot = via_bot
         self.outgoing = outgoing
         self.matches = matches
@@ -696,12 +701,7 @@ class Message(Object, Update):
                             animation = types.Animation._parse(client, doc, video_attributes, file_name)
                             media_type = enums.MessageMediaType.ANIMATION
                         elif raw.types.DocumentAttributeSticker in attributes:
-                            sticker = await types.Sticker._parse(
-                                client, doc,
-                                attributes.get(raw.types.DocumentAttributeImageSize, None),
-                                attributes[raw.types.DocumentAttributeSticker],
-                                file_name
-                            )
+                            sticker = await types.Sticker._parse(client, doc, attributes)
                             media_type = enums.MessageMediaType.STICKER
                         elif raw.types.DocumentAttributeVideo in attributes:
                             video_attributes = attributes[raw.types.DocumentAttributeVideo]
@@ -747,8 +747,7 @@ class Message(Object, Update):
             from_user = types.User._parse(client, users.get(user_id, None))
             sender_chat = types.Chat._parse(client, message, users, chats, is_chat=False) if not from_user else None
 
-            reactions = [types.Reaction(emoji=r.reaction, count=r.count, chosen=r.chosen)
-                         for r in message.reactions.results] if message.reactions else None
+            reactions = types.MessageReactions._parse(client, message.reactions)
 
             parsed_message = Message(
                 id=message.id,
@@ -806,6 +805,7 @@ class Message(Object, Update):
                 poll=poll,
                 dice=dice,
                 views=message.views,
+                forwards=message.forwards,
                 via_bot=types.User._parse(client, users.get(message.via_bot_id, None)),
                 outgoing=message.out,
                 reply_markup=reply_markup,
@@ -833,7 +833,8 @@ class Message(Object, Update):
                     except MessageIdsEmpty:
                         pass
 
-            client.message_cache[(parsed_message.chat.id, parsed_message.id)] = parsed_message
+            if not parsed_message.poll:  # Do not cache poll messages
+                client.message_cache[(parsed_message.chat.id, parsed_message.id)] = parsed_message
 
             return parsed_message
 
@@ -3056,6 +3057,7 @@ class Message(Object, Update):
                 chat_id,
                 text=self.text,
                 entities=self.entities,
+                parse_mode=enums.ParseMode.DISABLED,
                 disable_web_page_preview=not self.web_page,
                 disable_notification=disable_notification,
                 reply_to_message_id=reply_to_message_id,
@@ -3310,7 +3312,7 @@ class Message(Object, Update):
         else:
             await self.reply(button, quote=quote)
 
-    async def react(self, emoji: str = "") -> bool:
+    async def react(self, emoji: str = "", big: bool = False) -> bool:
         """Bound method *react* of :obj:`~pyrogram.types.Message`.
 
         Use as a shortcut for:
@@ -3332,6 +3334,10 @@ class Message(Object, Update):
             emoji (``str``, *optional*):
                 Reaction emoji.
                 Pass "" as emoji (default) to retract the reaction.
+             
+            big (``bool``, *optional*):
+                Pass True to show a bigger and longer reaction.
+                Defaults to False.
 
         Returns:
             ``bool``: On success, True is returned.
@@ -3343,7 +3349,8 @@ class Message(Object, Update):
         return await self._client.send_reaction(
             chat_id=self.chat.id,
             message_id=self.id,
-            emoji=emoji
+            emoji=emoji,
+            big=big
         )
 
     async def retract_vote(
